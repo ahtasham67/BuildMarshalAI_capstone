@@ -127,12 +127,27 @@ body {
 
 /* ═══ CHAT PANEL ═══ */
 .chat-panel {
-  width:var(--chat-panel-width); min-width:var(--chat-panel-width); height:100%;
+  width:var(--chat-panel-width); min-width:0; height:100%;
   background:var(--bg-white); border-left:1px solid var(--border-light);
   display:flex; flex-direction:column; z-index:20;
-  transition:width var(--transition-slow), min-width var(--transition-slow), transform var(--transition-slow);
+  transition:width var(--transition-slow), transform var(--transition-slow);
+  position:relative;
 }
-.chat-panel.collapsed { width:0; min-width:0; overflow:hidden; border-left:none; }
+.chat-panel.resizing { transition:none; }
+.chat-panel.collapsed { width:0; overflow:hidden; border-left:none; }
+
+/* Resize drag handle — left edge */
+.chat-resize-handle {
+  position:absolute; left:-3px; top:0; bottom:0; width:6px;
+  cursor:col-resize; z-index:25; background:transparent;
+  transition:background 0.15s ease;
+}
+.chat-resize-handle:hover,
+.chat-resize-handle.active {
+  background:var(--brand-blue); opacity:0.5;
+}
+body.chat-resizing { cursor:col-resize !important; user-select:none !important; }
+body.chat-resizing * { cursor:col-resize !important; }
 .chat-panel-header {
   padding:12px 14px; border-bottom:1px solid var(--border-light);
   display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
@@ -468,6 +483,7 @@ body {
 /* ═══ RESPONSIVE — TABLET ═══ */
 @media (max-width: 1200px) {
   :root { --chat-panel-width: 320px; }
+  .chat-resize-handle { display:none; }
   .chat-panel {
     position:fixed; right:0; top:0; height:100%; z-index:50;
     box-shadow:var(--shadow-xl); transform:translateX(100%);

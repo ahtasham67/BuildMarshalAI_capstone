@@ -79,7 +79,8 @@
     btnChatHistory: $('#btnChatHistory'),
     btnCloseHistory: $('#btnCloseHistory'),
     chatHistoryPanel: $('#chatHistoryPanel'),
-    chatHistoryList: $('#chatHistoryList')
+    chatHistoryList: $('#chatHistoryList'),
+    chatResizeHandle: $('#chatResizeHandle')
   };
 
   // ═══ Utilities ═══
@@ -507,6 +508,70 @@
   function hideChat() { DOM.chatPanel.classList.remove('visible'); DOM.chatPanel.classList.add('collapsed'); DOM.chatOverlay.classList.remove('open'); }
   function toggleChat() { DOM.chatPanel.classList.contains('visible') ? hideChat() : showChat(); }
 
+  // ═══ Chat Panel Resize (drag left edge) ═══
+  function initChatResize() {
+    const handle = DOM.chatResizeHandle;
+    const panel = DOM.chatPanel;
+    if (!handle || !panel) return;
+
+    const MIN_W = 280;
+    const MAX_W = 700;
+    let startX = 0;
+    let startW = 0;
+    let isDragging = false;
+
+    function onPointerDown(e) {
+      // Only on desktop (> 1200px)
+      if (window.innerWidth <= 1200) return;
+      e.preventDefault();
+      isDragging = true;
+      startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      startW = panel.getBoundingClientRect().width;
+      panel.classList.add('resizing');
+      handle.classList.add('active');
+      document.body.classList.add('chat-resizing');
+      document.addEventListener('mousemove', onPointerMove);
+      document.addEventListener('mouseup', onPointerUp);
+      document.addEventListener('touchmove', onPointerMove, { passive: false });
+      document.addEventListener('touchend', onPointerUp);
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      // Dragging left = increasing width, dragging right = decreasing width
+      const delta = startX - clientX;
+      const newW = Math.min(MAX_W, Math.max(MIN_W, startW + delta));
+      panel.style.width = newW + 'px';
+    }
+
+    function onPointerUp() {
+      if (!isDragging) return;
+      isDragging = false;
+      panel.classList.remove('resizing');
+      handle.classList.remove('active');
+      document.body.classList.remove('chat-resizing');
+      document.removeEventListener('mousemove', onPointerMove);
+      document.removeEventListener('mouseup', onPointerUp);
+      document.removeEventListener('touchmove', onPointerMove);
+      document.removeEventListener('touchend', onPointerUp);
+      // Persist the width
+      const finalW = panel.getBoundingClientRect().width;
+      localStorage.setItem('bm_chat_width', Math.round(finalW));
+    }
+
+    handle.addEventListener('mousedown', onPointerDown);
+    handle.addEventListener('touchstart', onPointerDown, { passive: false });
+
+    // Restore saved width
+    const savedW = localStorage.getItem('bm_chat_width');
+    if (savedW && window.innerWidth > 1200) {
+      const w = Math.min(MAX_W, Math.max(MIN_W, parseInt(savedW, 10)));
+      panel.style.width = w + 'px';
+    }
+  }
+
   function createNewChat() {
     const id = genId();
     state.chats[id] = { id, title: 'New Chat', messages: [], createdAt: Date.now() };
@@ -832,6 +897,9 @@
     DOM.btnNewChat.addEventListener('click', () => { createNewChat(); renderChatMessages(); closeChatHistory(); });
     DOM.btnChatHistory.addEventListener('click', toggleChatHistory);
     DOM.btnCloseHistory.addEventListener('click', closeChatHistory);
+
+    // Chat panel resize
+    initChatResize();
 
     // Chat input — auto-resize textarea
     DOM.chatInput.addEventListener('input', () => autoResize(DOM.chatInput));
