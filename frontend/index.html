@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="BuildMarshal — AI-powered construction project management platform with document intelligence.">
+  <meta name="theme-color" content="#1e293b">
+  <title>BuildMarshal — Construction Project Management</title>
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%2322c55e'/><stop offset='100%25' style='stop-color:%2316a34a'/></linearGradient></defs><rect rx='20' width='100' height='100' fill='url(%23g)'/><text x='50' y='68' font-size='50' font-weight='900' fill='white' text-anchor='middle' font-family='sans-serif'>BM</text></svg>">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-layout" id="appLayout">
+
+    <!-- ═══ LEFT SIDEBAR ═══ -->
+    <aside class="sidebar" id="sidebar">
+      <!-- Logo -->
+      <div class="sidebar-logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="40" height="40" rx="8" fill="#22c55e"/>
+            <path d="M12 20.5L17.5 26L28 15" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-build">BUILD</span>
+          <span class="logo-marshal">MARSHAL</span>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="sidebar-nav" id="sidebarNav">
+        <ul class="nav-list">
+          <li class="nav-item" data-page="marshal-chat">
+            <span class="material-icons-outlined">smart_toy</span>
+            <span class="nav-label">Marshal Chat</span>
+          </li>
+          <li class="nav-item" data-page="new-chat">
+            <span class="material-icons-outlined">add_comment</span>
+            <span class="nav-label">New chat</span>
+          </li>
+          <li class="nav-item" data-page="communication">
+            <span class="material-icons-outlined">mail</span>
+            <span class="nav-label">Communication</span>
+            <span class="nav-badge" id="commBadge">24</span>
+          </li>
+          <li class="nav-item" data-page="contact">
+            <span class="material-icons-outlined">contacts</span>
+            <span class="nav-label">Contact</span>
+          </li>
+          <li class="nav-item" data-page="task-manager">
+            <span class="material-icons-outlined">task_alt</span>
+            <span class="nav-label">Task Manager</span>
+          </li>
+
+          <!-- Project (expandable) -->
+          <li class="nav-group">
+            <div class="nav-group-header" data-group="project">
+              <span class="material-icons-outlined">apartment</span>
+              <span class="nav-label">Project</span>
+              <span class="material-icons-outlined nav-chevron">expand_more</span>
+            </div>
+            <ul class="nav-sublist" id="projectSubmenu">
+              <li class="nav-item sub-item" data-page="all-projects">
+                <span class="nav-label">All Projects</span>
+              </li>
+              <li class="nav-item sub-item" data-page="project-details">
+                <span class="nav-label">Project Details</span>
+              </li>
+            </ul>
+          </li>
+
+          <li class="nav-item" data-page="calendar">
+            <span class="material-icons-outlined">calendar_month</span>
+            <span class="nav-label">Calendar</span>
+          </li>
+          <li class="nav-item" data-page="rules-regulation">
+            <span class="material-icons-outlined">gavel</span>
+            <span class="nav-label">Rules and Regulation</span>
+          </li>
+          <li class="nav-item" data-page="documents">
+            <span class="material-icons-outlined">description</span>
+            <span class="nav-label">Documents</span>
+          </li>
+          <li class="nav-item" data-page="photos">
+            <span class="material-icons-outlined">photo_library</span>
+            <span class="nav-label">Photos</span>
+          </li>
+          <li class="nav-item" data-page="share-file">
+            <span class="material-icons-outlined">share</span>
+            <span class="nav-label">Share file</span>
+          </li>
+          <li class="nav-item" data-page="home-dashboard">
+            <span class="material-icons-outlined">dashboard</span>
+            <span class="nav-label">Home Dashboard</span>
+          </li>
+          <li class="nav-item" data-page="report">
+            <span class="material-icons-outlined">assessment</span>
+            <span class="nav-label">Report</span>
+          </li>
+
+          <!-- Company Settings (expandable) -->
+          <li class="nav-group">
+            <div class="nav-group-header" data-group="companySettings">
+              <span class="material-icons-outlined">settings</span>
+              <span class="nav-label">Company Settings</span>
+              <span class="material-icons-outlined nav-chevron">expand_more</span>
+            </div>
+            <ul class="nav-sublist" id="companySettingsSubmenu">
+              <li class="nav-item sub-item" data-page="company-info">
+                <span class="nav-label">Company Info</span>
+              </li>
+              <li class="nav-item sub-item" data-page="trades">
+                <span class="material-icons-outlined" style="font-size:18px">swap_horiz</span>
+                <span class="nav-label">Trades</span>
+              </li>
+              <li class="nav-item sub-item" data-page="vendors">
+                <span class="nav-label">Vendors</span>
+              </li>
+              <li class="nav-item sub-item" data-page="project-types">
+                <span class="nav-label">Project Types</span>
+              </li>
+              <li class="nav-item sub-item" data-page="project-phases">
+                <span class="nav-label">Project Phases</span>
+              </li>
+              <li class="nav-item sub-item" data-page="user-management">
+                <span class="nav-label">User</span>
+              </li>
+            </ul>
+          </li>
+
+          <li class="nav-item" data-page="procore-data">
+            <span class="material-icons-outlined">storage</span>
+            <span class="nav-label">Procore Data</span>
+          </li>
+          <li class="nav-item" data-page="microsoft-planner">
+            <span class="material-icons-outlined">view_kanban</span>
+            <span class="nav-label">Microsoft Planner</span>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ═══ MAIN AREA (header + content) ═══ -->
+    <div class="main-area">
+      <!-- Top Header Bar -->
+      <header class="top-header" id="topHeader">
+        <div class="header-left">
+          <button class="btn-icon-only btn-sidebar-toggle" id="btnSidebarToggle" aria-label="Toggle sidebar">
+            <span class="material-icons-outlined">menu</span>
+          </button>
+          <button class="btn-icon-only btn-back" id="btnBack" aria-label="Go back">
+            <span class="material-icons-outlined">chevron_left</span>
+          </button>
+          <div class="project-selector" id="projectSelector">
+            <span class="project-name" id="currentProjectName">Pan Pacific Model Room FFE S...</span>
+            <span class="material-icons-outlined">expand_more</span>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="user-profile" id="userProfile">
+            <div class="user-avatar">
+              <span class="material-icons-outlined">person</span>
+            </div>
+            <span class="user-name">Tanvir Test</span>
+            <span class="material-icons-outlined">expand_more</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content Area -->
+      <main class="content-area" id="contentArea">
+        <!-- Dynamic content rendered by JS -->
+      </main>
+    </div>
+
+    <!-- ═══ RIGHT CHAT PANEL (Marshal AI) ═══ -->
+    <aside class="chat-panel" id="chatPanel">
+      <div class="chat-panel-header">
+        <div class="chat-panel-title">
+          <div class="marshal-avatar">
+            <span class="material-icons-outlined">smart_toy</span>
+          </div>
+          <div>
+            <div class="marshal-name">Marshal</div>
+            <div class="marshal-status">
+              <span class="status-dot connected" id="statusDot"></span>
+              <span id="statusText">Connected</span>
+            </div>
+          </div>
+        </div>
+        <button class="btn-icon-only chat-panel-toggle" id="btnToggleChat" aria-label="Toggle chat panel">
+          <span class="material-icons-outlined">chevron_right</span>
+        </button>
+      </div>
+
+      <div class="chat-panel-messages" id="chatMessages">
+        <!-- Messages rendered by JS -->
+      </div>
+
+      <div class="chat-panel-input">
+        <div class="chat-input-actions">
+          <button class="btn-icon-only" id="btnChatAttach" aria-label="Attach file" title="Upload files">
+            <span class="material-icons-outlined">attach_file</span>
+          </button>
+          <button class="btn-icon-only" id="btnChatMic" aria-label="Voice input">
+            <span class="material-icons-outlined">mic</span>
+          </button>
+          <button class="btn-icon-only" id="btnChatEmoji" aria-label="Emoji">
+            <span class="material-icons-outlined">mood</span>
+          </button>
+        </div>
+        <div class="chat-input-wrapper">
+          <input type="text" id="chatInput" placeholder="Message" aria-label="Type a message">
+          <button class="btn-send" id="btnChatSend" aria-label="Send message">Send</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ═══ MODALS ═══ -->
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>⚙ Settings</h2>
+          <button class="btn-icon-only modal-close" id="btnCloseSettings" aria-label="Close">
+            <span class="material-icons-outlined">close</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="apiUrlInput">Backend URL (Ngrok)</label>
+            <input type="url" class="form-input" id="apiUrlInput" placeholder="https://xxxx-xx-xx.ngrok-free.app" />
+            <div class="form-hint">Paste the ngrok public URL from your Kaggle notebook.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="modelSelect">Gemini Model</label>
+            <select class="form-input" id="modelSelect">
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (Fast)</option>
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro (Powerful)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="topKInput">Retrieval Top-K</label>
+            <input type="number" class="form-input" id="topKInput" value="5" min="1" max="20" />
+            <div class="form-hint">Number of document pages to retrieve per query (1-20).</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCancelSettings">Cancel</button>
+          <button class="btn btn-primary" id="btnSaveSettings">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create/Edit Modal (reusable) -->
+    <div class="modal-overlay" id="crudModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="crudModalTitle">Create</h2>
+          <button class="btn-icon-only modal-close" id="btnCloseCrud" aria-label="Close">
+            <span class="material-icons-outlined">close</span>
+          </button>
+        </div>
+        <div class="modal-body" id="crudModalBody">
+          <!-- Dynamic form fields -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCancelCrud">Cancel</button>
+          <button class="btn btn-primary" id="btnSaveCrud">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Preview Overlay -->
+    <div class="image-preview-overlay" id="imagePreviewOverlay">
+      <button class="btn-icon-only image-preview-close" aria-label="Close preview">
+        <span class="material-icons-outlined">close</span>
+      </button>
+      <img id="imagePreviewImg" src="" alt="Preview" />
+    </div>
+
+    <!-- Upload Panel (slide-in) -->
+    <div class="upload-panel-overlay" id="uploadPanelOverlay"></div>
+    <aside class="upload-panel" id="uploadPanel">
+      <div class="upload-panel-header">
+        <h2>📁 Documents</h2>
+        <button class="btn-icon-only" id="btnCloseUploadPanel" aria-label="Close">
+          <span class="material-icons-outlined">close</span>
+        </button>
+      </div>
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" multiple accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff,.doc,.docx" />
+        <span class="material-icons-outlined drop-zone-icon">cloud_upload</span>
+        <div class="drop-zone-text">Drop files here or click to browse</div>
+        <div class="drop-zone-hint">PDF, Excel, Images, Word — up to 50MB each</div>
+      </div>
+      <div class="document-list" id="documentList">
+        <div class="document-list-header">
+          <span>Indexed Documents</span>
+          <span id="docTotalCount">0 files</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
