@@ -6,6 +6,10 @@ Upload your project documents — PDFs, spreadsheets, images, drawings — and a
 
 ---
 
+---
+Frontend deployed on
+https://build-marshal-ai-capstone.vercel.app/
+---
 ## Architecture
 
 ```
@@ -158,4 +162,5 @@ BuildMarshalAI/
 
 ## License
 
-MIT License — Built with ❤️ by BuildMarshalAI
+MIT License — Built with ❤️ by Ahtashamul Haque 
+BuildMarshalAI
