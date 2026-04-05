@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════
    BuildMarshal — Main Application
-   Routing, Pages, Chat, CRUD
+   Only features backed by real API endpoints
    ═══════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -9,37 +9,41 @@
   const state = {
     currentPage: 'project-details',
     expandedGroups: { project: true, companySettings: false },
-    chatOpen: true,
     chats: {},
     activeChatId: null,
     uploadedDocs: [],
     isStreaming: false,
     isConnected: false,
-    photosPage: 1,
-    photosPerPage: 10
+    // Backend data
+    trades: [],
+    vendors: [],
+    teamMembers: []
   };
 
-  // ═══ DOM Helpers ═══
+  // ═══ DOM ═══
   const $ = sel => document.querySelector(sel);
   const $$ = sel => document.querySelectorAll(sel);
 
   const DOM = {
     sidebar: $('#sidebar'),
-    sidebarNav: $('#sidebarNav'),
     contentArea: $('#contentArea'),
+    headerPageTitle: $('#headerPageTitle'),
     chatPanel: $('#chatPanel'),
     chatMessages: $('#chatMessages'),
     chatInput: $('#chatInput'),
     btnChatSend: $('#btnChatSend'),
     btnToggleChat: $('#btnToggleChat'),
     btnSidebarToggle: $('#btnSidebarToggle'),
-    btnBack: $('#btnBack'),
     statusDot: $('#statusDot'),
     statusText: $('#statusText'),
+    statusDotNav: $('#statusDotNav'),
+    statusTextNav: $('#statusTextNav'),
     settingsModal: $('#settingsModal'),
     btnCloseSettings: $('#btnCloseSettings'),
     btnCancelSettings: $('#btnCancelSettings'),
     btnSaveSettings: $('#btnSaveSettings'),
+    btnOpenSettings: $('#btnOpenSettings'),
+    btnHeaderSettings: $('#btnHeaderSettings'),
     apiUrlInput: $('#apiUrlInput'),
     modelSelect: $('#modelSelect'),
     topKInput: $('#topKInput'),
@@ -58,6 +62,7 @@
     fileInput: $('#fileInput'),
     documentList: $('#documentList'),
     docTotalCount: $('#docTotalCount'),
+    docCountBadge: $('#docCountBadge'),
     toastContainer: $('#toastContainer'),
     btnChatAttach: $('#btnChatAttach')
   };
@@ -138,26 +143,58 @@
   }
 
   function setConn(s) {
-    const l = { connected:'Connected', disconnected:'Disconnected', connecting:'Connecting...' };
+    const labels = { connected:'Connected', disconnected:'Disconnected', connecting:'Connecting...' };
     DOM.statusDot.className = `status-dot ${s}`;
-    DOM.statusText.textContent = l[s] || s;
+    DOM.statusText.textContent = labels[s] || s;
+    DOM.statusDotNav.className = `status-dot ${s}`;
+    DOM.statusTextNav.textContent = labels[s] || s;
   }
 
-  // ═══ Navigation / Routing ═══
+  // ═══ Data Fetching from Backend ═══
+  async function fetchTrades() {
+    try { const r = await apiReq('/api/trades'); const d = await r.json(); state.trades = d.trades || []; } catch(e) { state.trades = []; }
+  }
+  async function fetchVendors() {
+    try { const r = await apiReq('/api/vendors'); const d = await r.json(); state.vendors = d.vendors || []; } catch(e) { state.vendors = []; }
+  }
+  async function fetchTeamMembers() {
+    try { const r = await apiReq('/api/team-members'); const d = await r.json(); state.teamMembers = d.team_members || []; } catch(e) { state.teamMembers = []; }
+  }
+  async function fetchDocuments() {
+    try {
+      const r = await apiReq('/api/documents');
+      const d = await r.json();
+      state.uploadedDocs = d.documents || [];
+      renderDocList();
+      if (state.uploadedDocs.length > 0) {
+        DOM.docCountBadge.textContent = state.uploadedDocs.length;
+        DOM.docCountBadge.style.display = 'inline';
+      } else {
+        DOM.docCountBadge.style.display = 'none';
+      }
+    } catch(e) { state.uploadedDocs = []; }
+  }
+  async function fetchAllData() {
+    if (!getApiUrl()) return;
+    await Promise.all([fetchTrades(), fetchVendors(), fetchTeamMembers(), fetchDocuments()]);
+    renderPage();
+  }
+
+  // ═══ Navigation ═══
+  const PAGE_TITLES = {
+    'project-details':'Project Details', 'trades':'Trades Management', 'vendors':'Vendors Management',
+    'documents':'Indexed Documents', 'marshal-chat':'Marshal Chat'
+  };
+
   function navigateTo(page) {
     state.currentPage = page;
-    // Update active nav
     $$('.nav-item').forEach(i => i.classList.remove('active'));
     const active = $(`.nav-item[data-page="${page}"]`);
     if (active) active.classList.add('active');
-    // Expand parent group if sub-item
-    if (['all-projects','project-details'].includes(page)) {
-      state.expandedGroups.project = true;
-    }
-    if (['company-info','trades','vendors','project-types','project-phases','user-management'].includes(page)) {
-      state.expandedGroups.companySettings = true;
-    }
+    if (['project-details'].includes(page)) state.expandedGroups.project = true;
+    if (['trades','vendors'].includes(page)) state.expandedGroups.companySettings = true;
     updateNavGroups();
+    DOM.headerPageTitle.textContent = PAGE_TITLES[page] || page;
     renderPage();
   }
 
@@ -165,284 +202,159 @@
     document.querySelectorAll('.nav-group').forEach(g => {
       const hdr = g.querySelector('.nav-group-header');
       const key = hdr?.dataset.group;
-      if (key && state.expandedGroups[key]) {
-        g.classList.add('expanded');
-      } else {
-        g.classList.remove('expanded');
-      }
+      if (key && state.expandedGroups[key]) g.classList.add('expanded');
+      else g.classList.remove('expanded');
     });
   }
 
   function renderPage() {
     const page = state.currentPage;
-    const area = DOM.contentArea;
     switch(page) {
-      case 'project-details': area.innerHTML = renderProjectDetails(); break;
-      case 'trades': area.innerHTML = renderTradesPage(); break;
-      case 'vendors': area.innerHTML = renderVendorsPage(); break;
-      case 'documents': area.innerHTML = renderDocumentsPage(); break;
-      case 'photos': area.innerHTML = renderPhotosPage(); break;
-      case 'marshal-chat': case 'new-chat':
-        area.innerHTML = renderChatFullPage(); break;
-      default:
-        area.innerHTML = renderPlaceholderPage(page); break;
+      case 'project-details': DOM.contentArea.innerHTML = renderProjectDetails(); break;
+      case 'trades': DOM.contentArea.innerHTML = renderTradesPage(); break;
+      case 'vendors': DOM.contentArea.innerHTML = renderVendorsPage(); break;
+      case 'documents': DOM.contentArea.innerHTML = renderDocumentsPage(); break;
+      case 'marshal-chat': DOM.contentArea.innerHTML = renderChatFullPage(); break;
+      default: DOM.contentArea.innerHTML = renderProjectDetails(); break;
     }
     bindPageEvents();
   }
 
   // ═══ Page Renderers ═══
 
+  function notConnectedMsg() {
+    if (getApiUrl()) return '';
+    return `<div class="connection-banner">
+      <span class="material-icons-outlined">cloud_off</span>
+      <span>Backend not connected.</span>
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('btnOpenSettings').click()">Open Settings</button>
+    </div>`;
+  }
+
   function renderProjectDetails() {
-    const internal = DEMO_DATA.teamMembers.filter(m => m.category === 'internal');
-    const vendors = DEMO_DATA.teamMembers.filter(m => m.category === 'vendor');
+    const internal = state.teamMembers.filter(m => m.category === 'internal');
+    const vendors = state.teamMembers.filter(m => m.category === 'vendor');
+    const contractors = state.teamMembers.filter(m => m.category === 'contractor');
+    const consultants = state.teamMembers.filter(m => m.category === 'consultant');
+
     const cards = [
-      { title: 'Internal Team', count: internal.length, cols: ['Name','Email','Department'], rows: internal.map(m => [m.name, m.email, m.department||'—']), cat: 'internal' },
-      { title: 'Subcontractors & Trades', count: 0, cols: ['Name','Company'], rows: [], cat: 'contractor' },
-      { title: 'Consultants & Designers', count: 0, cols: ['Name','Company'], rows: [], cat: 'consultant' },
-      { title: 'Inspectors & Authorities', count: 0, cols: ['Name','Company'], rows: [], cat: 'inspector' },
-      { title: 'Owner & Client Representatives', count: 0, cols: ['Name','Company'], rows: [], cat: 'representative' },
-      { title: 'Vendors & Suppliers', count: vendors.length, cols: ['Vendor','Contact Na...','Email'], rows: vendors.map(v => [v.company||v.name, v.contactName||'—', v.email||'—']), cat: 'vendor' },
-      { title: 'Specialist Service Providers', count: 0, cols: ['Name','Company'], rows: [], cat: 'specialist' },
-      { title: 'Financial & Legal Stakeholders', count: 0, cols: ['Name','Company'], rows: [], cat: 'financial' }
+      { title:'Internal Team', members:internal, cols:['Name','Email','Department'], getRow: m => [m.name,m.email,m.department||'—'] },
+      { title:'Subcontractors & Trades', members:contractors, cols:['Name','Company'], getRow: m => [m.name,m.company||'—'] },
+      { title:'Consultants & Designers', members:consultants, cols:['Name','Company'], getRow: m => [m.name,m.company||'—'] },
+      { title:'Vendors & Suppliers', members:vendors, cols:['Vendor','Contact','Email'], getRow: m => [m.company||m.name,m.contactName||'—',m.email||'—'] }
     ];
 
-    return `<div class="team-grid">${cards.map(c => `
+    return `${notConnectedMsg()}<div class="team-grid">${cards.map(c => `
       <div class="team-card">
         <div class="team-card-header">
-          <span class="team-card-title">${c.title} (${c.count})</span>
-          <button class="btn btn-primary" data-action="add-team" data-cat="${c.cat}" style="padding:4px 14px;font-size:0.8rem">
+          <span class="team-card-title">${c.title} (${c.members.length})</span>
+          <button class="btn btn-primary" data-action="add-team" data-cat="${c.title}" style="padding:4px 14px;font-size:0.8rem">
             <span class="material-icons-outlined" style="font-size:16px">add</span> Add
           </button>
         </div>
         <div class="team-card-body">
-          ${c.rows.length ? `<table>
-            <thead><tr>${c.cols.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-            <tbody>${c.rows.map(r => `<tr>${r.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
-          </table>` : `<div class="empty-msg">No ${c.title.toLowerCase()}</div>`}
+          ${c.members.length ? `<table>
+            <thead><tr>${c.cols.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+            <tbody>${c.members.map(m=>`<tr>${c.getRow(m).map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table>` : `<div class="empty-msg">No ${c.title.toLowerCase()} yet</div>`}
         </div>
       </div>
     `).join('')}</div>`;
   }
 
   function renderTradesPage() {
-    const trades = DEMO_DATA.trades;
-    return `
+    return `${notConnectedMsg()}
       <div class="page-header">
         <h1 class="page-title">Trades Management</h1>
-        <button class="btn btn-primary" id="btnCreateTrade">
-          <span class="material-icons-outlined">add</span> Create Trade
-        </button>
+        <button class="btn btn-primary" id="btnCreateTrade"><span class="material-icons-outlined">add</span> Create Trade</button>
       </div>
       <div class="filters-bar">
         <div class="filters-row">
-          <div class="filter-group">
-            <div class="filter-label">Search</div>
-            <input class="filter-input search" id="tradeSearch" placeholder="Search by name or description">
+          <div class="filter-group"><div class="filter-label">Search</div>
+            <input class="filter-input search" id="tradeSearch" placeholder="Search by name...">
           </div>
-          <div class="filter-group">
-            <div class="filter-label">Status</div>
-            <select class="filter-input" id="tradeStatusFilter">
-              <option value="">Select status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+          <div class="filter-group"><div class="filter-label">Status</div>
+            <select class="filter-input" id="tradeStatusFilter"><option value="">All</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
           </div>
         </div>
-        <div class="filters-meta">
-          <span class="total-count">Total: ${trades.length}</span>
-          <button class="btn-clear" id="btnClearTradeFilters">Clear</button>
-        </div>
+        <div class="filters-meta"><span class="total-count">Total: ${state.trades.length}</span></div>
       </div>
       <div class="data-table-container">
         <table class="data-table" id="tradesTable">
           <thead><tr><th>Name</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>${trades.map(t => `
+          <tbody>${state.trades.length ? state.trades.map(t => `
             <tr data-id="${t.id}">
-              <td>${esc(t.name)}</td>
-              <td>${esc(t.description)}</td>
+              <td>${esc(t.name)}</td><td>${esc(t.description)}</td>
               <td><span class="badge ${t.status==='Active'?'badge-active':'badge-inactive'}">${t.status}</span></td>
               <td><div class="table-actions">
                 <button class="btn-table-action" data-action="edit-trade" data-id="${t.id}" title="Edit"><span class="material-icons-outlined">edit</span></button>
                 <button class="btn-table-action delete" data-action="delete-trade" data-id="${t.id}" title="Delete"><span class="material-icons-outlined">delete</span></button>
               </div></td>
-            </tr>
-          `).join('')}</tbody>
+            </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:40px">${getApiUrl()?'No trades found':'Connect backend to load trades'}</td></tr>`}
+          </tbody>
         </table>
       </div>`;
   }
 
   function renderVendorsPage() {
-    const vendors = DEMO_DATA.vendors;
-    return `
+    return `${notConnectedMsg()}
       <div class="breadcrumb">
-        <a href="#" data-nav="home-dashboard"><span class="material-icons-outlined">home</span></a>
-        <span class="sep">/</span><a href="#" data-nav="company-info">Company Settings</a>
+        <a href="#" data-nav="project-details"><span class="material-icons-outlined">home</span></a>
+        <span class="sep">/</span><span>Company Settings</span>
         <span class="sep">/</span><span>Vendors</span>
       </div>
       <div class="page-header">
         <h1 class="page-title">Vendors Management</h1>
-        <button class="btn btn-primary" id="btnCreateVendor">
-          <span class="material-icons-outlined">add</span> Create Vendor
-        </button>
+        <button class="btn btn-primary" id="btnCreateVendor"><span class="material-icons-outlined">add</span> Create Vendor</button>
       </div>
       <div class="filters-bar">
         <div class="filters-row">
-          <div class="filter-group">
-            <div class="filter-label">Search</div>
-            <input class="filter-input search" id="vendorSearch" placeholder="Search by name or email">
+          <div class="filter-group"><div class="filter-label">Search</div>
+            <input class="filter-input search" id="vendorSearch" placeholder="Search by name...">
           </div>
-          <div class="filter-group">
-            <div class="filter-label">Status</div>
-            <select class="filter-input" id="vendorStatusFilter"><option value="">Select status</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
-          </div>
-          <div class="filter-group">
-            <div class="filter-label">Vendor Type</div>
-            <select class="filter-input" id="vendorTypeFilter"><option value="">Select vendor type</option><option value="Material Supplier">Material Supplier</option><option value="Subcontractor">Subcontractor</option></select>
+          <div class="filter-group"><div class="filter-label">Status</div>
+            <select class="filter-input" id="vendorStatusFilter"><option value="">All</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
           </div>
         </div>
-        <div class="filters-meta">
-          <span class="total-count">Total: ${vendors.length}</span>
-          <button class="btn-clear" id="btnClearVendorFilters">Clear</button>
-        </div>
+        <div class="filters-meta"><span class="total-count">Total: ${state.vendors.length}</span></div>
       </div>
       <div class="data-table-container">
         <table class="data-table" id="vendorsTable">
           <thead><tr><th>Vendor Name</th><th>Vendor Type</th><th>Trade</th><th>Active Projects</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>${vendors.map(v => `
+          <tbody>${state.vendors.length ? state.vendors.map(v => `
             <tr data-id="${v.id}">
               <td>${esc(v.name)}</td>
-              <td><span class="badge badge-blue">${v.vendorType}</span></td>
-              <td>${esc(v.trade)}</td>
-              <td>${v.activeProjects}</td>
+              <td><span class="badge badge-blue">${v.vendorType||'—'}</span></td>
+              <td>${esc(v.trade||'—')}</td><td>${v.activeProjects||0}</td>
               <td><span class="badge ${v.status==='Active'?'badge-active':'badge-inactive'}">${v.status}</span></td>
               <td><div class="table-actions">
                 <button class="btn-table-action" data-action="edit-vendor" data-id="${v.id}" title="Edit"><span class="material-icons-outlined">edit</span></button>
                 <button class="btn-table-action delete" data-action="delete-vendor" data-id="${v.id}" title="Delete"><span class="material-icons-outlined">delete</span></button>
               </div></td>
-            </tr>
-          `).join('')}</tbody>
+            </tr>`).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:40px">${getApiUrl()?'No vendors found':'Connect backend to load vendors'}</td></tr>`}
+          </tbody>
         </table>
       </div>`;
   }
 
   function renderDocumentsPage() {
-    const docs = DEMO_DATA.documents;
-    return `
-      <div class="tab-bar">
-        <div class="tab-item active">All Projects</div>
-        <div class="tab-item">${esc(DEMO_DATA.currentProject.slice(0,45))} <button class="tab-close">×</button></div>
-      </div>
+    return `${notConnectedMsg()}
       <div class="page-header">
-        <h1 class="page-title">Shared Documents</h1>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-secondary">Share by Drive/Sites</button>
-          <button class="btn btn-primary" id="btnAddDocument"><span class="material-icons-outlined">add</span> Add more file</button>
-          <button class="btn btn-secondary"><span class="material-icons-outlined" style="font-size:16px">sync</span> Sync</button>
-        </div>
-      </div>
-      <div class="filters-bar">
-        <div class="filters-row">
-          <div class="filter-group" style="flex:0 0 auto;min-width:auto">
-            <div class="filter-label">View</div>
-            <div class="view-toggle">
-              <button class="view-toggle-btn" data-view="grid"><span class="material-icons-outlined">grid_view</span></button>
-              <button class="view-toggle-btn active" data-view="list"><span class="material-icons-outlined">view_list</span></button>
-            </div>
-          </div>
-          <div class="filter-group">
-            <div class="filter-label">Name</div>
-            <input class="filter-input search" placeholder="Filter by name (min 3 c...)">
-          </div>
-          <div class="filter-group">
-            <div class="filter-label">Provider</div>
-            <select class="filter-input"><option value="">Select provider</option><option>OneDrive</option><option>Google</option><option>BuildMarshal</option></select>
-          </div>
-        </div>
-        <div class="filters-meta">
-          <span class="total-count">Total: ${docs.length}. Project filter: <em>${esc(DEMO_DATA.currentProject)}</em></span>
-          <div style="display:flex;gap:6px">
-            <button class="btn-clear">Clear</button>
-            <button class="btn-clear"><span class="material-icons-outlined" style="font-size:14px">refresh</span></button>
-          </div>
-        </div>
+        <h1 class="page-title">Indexed Documents</h1>
+        <button class="btn btn-primary" id="btnUploadDocs"><span class="material-icons-outlined">upload_file</span> Upload Document</button>
       </div>
       <div class="data-table-container">
         <table class="data-table">
-          <thead><tr><th style="width:30px"><input type="checkbox"></th><th>Name</th><th>Provider</th><th>Project name</th></tr></thead>
-          <tbody>${docs.map(d => {
-            const pClass = d.provider==='OneDrive'?'provider-onedrive':d.provider==='Google'?'provider-google':'provider-buildmarshal';
-            return `<tr>
-              <td><input type="checkbox"></td>
-              <td><a href="#" class="doc-link">${esc(d.name)}</a></td>
-              <td><span class="provider-badge ${pClass}">${d.provider}</span></td>
-              <td>${esc(d.projectName)}</td>
-            </tr>`;
-          }).join('')}</tbody>
+          <thead><tr><th>Name</th><th>Type</th><th>Pages</th><th>Status</th></tr></thead>
+          <tbody>${state.uploadedDocs.length ? state.uploadedDocs.map(d => `
+            <tr>
+              <td>${esc(d.name)}</td>
+              <td><span class="badge badge-blue">${d.type||'—'}</span></td>
+              <td>${d.pages||0}</td>
+              <td><span class="badge ${d.status==='indexed'?'badge-active':'badge-inactive'}">${d.status||'—'}</span></td>
+            </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:40px">${getApiUrl()?'No documents uploaded yet. Upload documents to chat with Marshal AI.':'Connect backend to manage documents.'}</td></tr>`}
+          </tbody>
         </table>
-      </div>`;
-  }
-
-  function renderPhotosPage() {
-    const allPhotos = DEMO_DATA.photos;
-    const total = allPhotos.length;
-    const pp = state.photosPerPage;
-    const cp = state.photosPage;
-    const totalPages = Math.ceil(total / pp);
-    const photos = allPhotos.slice((cp-1)*pp, cp*pp);
-
-    let pagBtns = '';
-    if (totalPages > 1) {
-      pagBtns += `<button class="page-btn ${cp===1?'disabled':''}" data-pag="${cp-1}"><span class="material-icons-outlined">chevron_left</span></button>`;
-      for (let i=1; i<=Math.min(totalPages,6); i++) {
-        pagBtns += `<button class="page-btn ${i===cp?'active':''}" data-pag="${i}">${i}</button>`;
-      }
-      pagBtns += `<button class="page-btn ${cp===totalPages?'disabled':''}" data-pag="${cp+1}"><span class="material-icons-outlined">chevron_right</span></button>`;
-    }
-
-    return `
-      <div class="tab-bar">
-        <div class="tab-item active">All Projects</div>
-        <div class="tab-item">${esc(DEMO_DATA.currentProject.slice(0,45))} <button class="tab-close">×</button></div>
-      </div>
-      <div class="page-header">
-        <h1 class="page-title">Photos</h1>
-        <label class="checkbox-label"><input type="checkbox"> Show only Marshal camera photos</label>
-      </div>
-      <div class="filters-bar">
-        <div class="filters-row">
-          <div class="filter-group" style="flex:0 0 auto;min-width:auto">
-            <div class="filter-label">View</div>
-            <div class="view-toggle">
-              <button class="view-toggle-btn active" data-view="grid"><span class="material-icons-outlined">grid_view</span></button>
-              <button class="view-toggle-btn" data-view="list"><span class="material-icons-outlined">view_list</span></button>
-            </div>
-          </div>
-          <div class="filter-group">
-            <div class="filter-label">Name</div>
-            <input class="filter-input search" placeholder="Filter by name (min 3 c...)">
-          </div>
-          <div class="filter-group">
-            <div class="filter-label">Provider</div>
-            <select class="filter-input"><option value="">Select provider</option><option>OneDrive</option><option>Google</option><option>BuildMarshal</option></select>
-          </div>
-        </div>
-        <div class="filters-meta">
-          <span class="total-count">Total ${total}</span>
-          <button class="btn-clear">Clear</button>
-        </div>
-      </div>
-      <div class="photos-grid" id="photosGrid">${photos.map(p => `
-        <div class="photo-card" data-photo-url="${esc(p.url)}">
-          <img class="photo-thumb" src="${esc(p.thumbnail)}" alt="${esc(p.name)}" loading="lazy">
-          <div class="photo-caption">${esc(p.name)}</div>
-        </div>
-      `).join('')}</div>
-      <div class="pagination">${pagBtns}
-        <select class="filter-input" style="width:auto;margin-left:12px;padding:4px 8px" id="photosPerPageSelect">
-          <option value="10" ${pp===10?'selected':''}>10 / page</option>
-          <option value="20" ${pp===20?'selected':''}>20 / page</option>
-          <option value="50" ${pp===50?'selected':''}>50 / page</option>
-        </select>
       </div>`;
   }
 
@@ -455,60 +367,28 @@
     </div>`;
   }
 
-  function renderPlaceholderPage(page) {
-    const titles = {
-      'communication':'Communication','contact':'Contact','task-manager':'Task Manager',
-      'all-projects':'All Projects','calendar':'Calendar','rules-regulation':'Rules and Regulation',
-      'share-file':'Share File','home-dashboard':'Home Dashboard','report':'Report',
-      'company-info':'Company Info','project-types':'Project Types','project-phases':'Project Phases',
-      'user-management':'User Management','procore-data':'Procore Data','microsoft-planner':'Microsoft Planner'
-    };
-    return `<div class="empty-state">
-      <span class="material-icons-outlined">construction</span>
-      <h3>${titles[page] || page}</h3>
-      <p>This section is coming soon. Use the sidebar to navigate to available pages.</p>
-    </div>`;
-  }
-
-  // ═══ Page Event Binding ═══
+  // ═══ Page Events ═══
   function bindPageEvents() {
-    // Breadcrumb nav
     $$('[data-nav]').forEach(el => el.addEventListener('click', e => { e.preventDefault(); navigateTo(el.dataset.nav); }));
-    // Table actions
     $$('[data-action]').forEach(el => el.addEventListener('click', handleAction));
-    // Create buttons
-    const btnCT = $('#btnCreateTrade');
-    if (btnCT) btnCT.addEventListener('click', () => openCrudModal('trade'));
-    const btnCV = $('#btnCreateVendor');
-    if (btnCV) btnCV.addEventListener('click', () => openCrudModal('vendor'));
-    // Document add
-    const btnAD = $('#btnAddDocument');
-    if (btnAD) btnAD.addEventListener('click', openUploadPanel);
-    // Open chat panel button
-    const btnOCP = $('#btnOpenChatPanel');
-    if (btnOCP) btnOCP.addEventListener('click', () => { DOM.chatPanel.classList.remove('collapsed'); DOM.chatPanel.classList.add('visible'); });
-    // Photos pagination
-    $$('[data-pag]').forEach(btn => btn.addEventListener('click', () => {
-      const p = parseInt(btn.dataset.pag);
-      if (p >= 1 && p <= Math.ceil(DEMO_DATA.photos.length / state.photosPerPage)) {
-        state.photosPage = p;
-        renderPage();
-      }
-    }));
-    const ppSel = $('#photosPerPageSelect');
-    if (ppSel) ppSel.addEventListener('change', () => { state.photosPerPage = parseInt(ppSel.value); state.photosPage = 1; renderPage(); });
-    // Photo click
-    $$('.photo-card').forEach(c => c.addEventListener('click', () => openImagePreview(c.dataset.photoUrl)));
+    const btnCT = $('#btnCreateTrade'); if (btnCT) btnCT.addEventListener('click', () => openCrudModal('trade'));
+    const btnCV = $('#btnCreateVendor'); if (btnCV) btnCV.addEventListener('click', () => openCrudModal('vendor'));
+    const btnUD = $('#btnUploadDocs'); if (btnUD) btnUD.addEventListener('click', openUploadPanel);
+    const btnOC = $('#btnOpenChatPanel'); if (btnOC) btnOC.addEventListener('click', () => { DOM.chatPanel.classList.remove('collapsed'); DOM.chatPanel.classList.add('visible'); });
   }
 
-  function handleAction(e) {
+  async function handleAction(e) {
     const btn = e.currentTarget;
     const action = btn.dataset.action;
     const id = btn.dataset.id;
     if (action === 'edit-trade') openCrudModal('trade', id);
-    else if (action === 'delete-trade') { DEMO_DATA.trades = DEMO_DATA.trades.filter(t => t.id !== id); renderPage(); showToast('Trade deleted','info'); }
+    else if (action === 'delete-trade') {
+      try { await apiReq(`/api/trades/${id}`, { method:'DELETE' }); await fetchTrades(); renderPage(); showToast('Trade deleted','info'); } catch(e) { showToast('Delete failed: '+e.message,'error'); }
+    }
     else if (action === 'edit-vendor') openCrudModal('vendor', id);
-    else if (action === 'delete-vendor') { DEMO_DATA.vendors = DEMO_DATA.vendors.filter(v => v.id !== id); renderPage(); showToast('Vendor deleted','info'); }
+    else if (action === 'delete-vendor') {
+      try { await apiReq(`/api/vendors/${id}`, { method:'DELETE' }); await fetchVendors(); renderPage(); showToast('Vendor deleted','info'); } catch(e) { showToast('Delete failed: '+e.message,'error'); }
+    }
   }
 
   // ═══ CRUD Modal ═══
@@ -520,7 +400,8 @@
     let fields = '';
 
     if (type === 'trade') {
-      const item = isEdit ? DEMO_DATA.trades.find(t => t.id === editId) : { name:'', description:'', status:'Active' };
+      const item = isEdit ? state.trades.find(t => t.id === editId) : { name:'', description:'', status:'Active' };
+      if (!item) return;
       fields = `
         <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="crudName" value="${esc(item.name)}"></div>
         <div class="form-group"><label class="form-label">Description</label><input class="form-input" id="crudDesc" value="${esc(item.description)}"></div>
@@ -528,14 +409,18 @@
           <option value="Active" ${item.status==='Active'?'selected':''}>Active</option>
           <option value="Inactive" ${item.status==='Inactive'?'selected':''}>Inactive</option>
         </select></div>`;
-      crudCallback = () => {
-        const d = { name: $('#crudName').value.trim(), description: $('#crudDesc').value.trim() || '-', status: $('#crudStatus').value };
-        if (!d.name) { showToast('Name is required','warning'); return false; }
-        if (isEdit) { Object.assign(item, d); } else { DEMO_DATA.trades.push({ id: genId(), ...d }); }
-        return true;
+      crudCallback = async () => {
+        const payload = { name:$('#crudName').value.trim(), description:$('#crudDesc').value.trim()||'-', status:$('#crudStatus').value };
+        if (!payload.name) { showToast('Name is required','warning'); return false; }
+        try {
+          if (isEdit) { await apiReq(`/api/trades/${editId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }); }
+          else { await apiReq('/api/trades', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }); }
+          await fetchTrades(); return true;
+        } catch(e) { showToast('Save failed: '+e.message,'error'); return false; }
       };
     } else if (type === 'vendor') {
-      const item = isEdit ? DEMO_DATA.vendors.find(v => v.id === editId) : { name:'', vendorType:'Material Supplier', trade:'', activeProjects:0, status:'Active' };
+      const item = isEdit ? state.vendors.find(v => v.id === editId) : { name:'', vendorType:'Material Supplier', trade:'', status:'Active' };
+      if (!item) return;
       fields = `
         <div class="form-group"><label class="form-label">Vendor Name</label><input class="form-input" id="crudName" value="${esc(item.name)}"></div>
         <div class="form-group"><label class="form-label">Vendor Type</label><select class="form-input" id="crudType">
@@ -543,17 +428,21 @@
           <option value="Subcontractor" ${item.vendorType==='Subcontractor'?'selected':''}>Subcontractor</option>
         </select></div>
         <div class="form-group"><label class="form-label">Trade</label><select class="form-input" id="crudTrade">
-          ${DEMO_DATA.trades.map(t => `<option value="${esc(t.name)}" ${item.trade===t.name?'selected':''}>${esc(t.name)}</option>`).join('')}
+          <option value="">Select trade...</option>
+          ${state.trades.map(t=>`<option value="${esc(t.name)}" ${item.trade===t.name?'selected':''}>${esc(t.name)}</option>`).join('')}
         </select></div>
         <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="crudStatus">
           <option value="Active" ${item.status==='Active'?'selected':''}>Active</option>
           <option value="Inactive" ${item.status==='Inactive'?'selected':''}>Inactive</option>
         </select></div>`;
-      crudCallback = () => {
-        const d = { name: $('#crudName').value.trim(), vendorType: $('#crudType').value, trade: $('#crudTrade').value, status: $('#crudStatus').value, activeProjects: item.activeProjects||0 };
-        if (!d.name) { showToast('Name is required','warning'); return false; }
-        if (isEdit) { Object.assign(item, d); } else { DEMO_DATA.vendors.push({ id: genId(), ...d }); }
-        return true;
+      crudCallback = async () => {
+        const payload = { name:$('#crudName').value.trim(), vendorType:$('#crudType').value, trade:$('#crudTrade').value, status:$('#crudStatus').value };
+        if (!payload.name) { showToast('Name is required','warning'); return false; }
+        try {
+          if (isEdit) { await apiReq(`/api/vendors/${editId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }); }
+          else { await apiReq('/api/vendors', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }); }
+          await fetchVendors(); return true;
+        } catch(e) { showToast('Save failed: '+e.message,'error'); return false; }
       };
     }
     DOM.crudModalBody.innerHTML = fields;
@@ -570,40 +459,27 @@
     saveChats();
     return id;
   }
-
   function getActiveChat() { return state.activeChatId ? state.chats[state.activeChatId] : null; }
 
   function addMessage(role, content, sources=null) {
     let chat = getActiveChat();
     if (!chat) { createNewChat(); chat = getActiveChat(); }
-    const msg = { id: genId(), role, content, sources, timestamp: Date.now() };
+    const msg = { id:genId(), role, content, sources, timestamp:Date.now() };
     chat.messages.push(msg);
     if (role==='user' && chat.messages.filter(m=>m.role==='user').length===1) {
-      chat.title = content.slice(0,50) + (content.length>50?'…':'');
+      chat.title = content.slice(0,50)+(content.length>50?'…':'');
     }
-    saveChats();
-    return msg;
+    saveChats(); return msg;
   }
 
   function renderChatMessages() {
     const chat = getActiveChat();
     if (!chat || chat.messages.length === 0) {
-      DOM.chatMessages.innerHTML = `
-        <div class="chat-msg bot">
-          <div>Hi Carl,</div>
-          <div style="margin-top:8px">I hope this message finds you well.</div>
-          <div style="margin-top:8px"><strong>Pan Pacific Village Centre</strong></div>
-          <div>- <strong>Summary:</strong> The document is...</div>
-          <div style="margin-top:4px">- <strong>Insights:</strong> The RFT is for...</div>
-          <div style="margin-top:8px">Please review the attached details.</div>
-          <div style="margin-top:8px">Best regards,</div>
-          <div style="margin-top:8px">Tanvir Test<br>Project Manager<br>BuildMarshal Technology Corp<br>support@buildmarshal.ai</div>
-          <div class="chat-msg-time"><span class="material-icons-outlined">done_all</span> Feb 11, 2026, 4:21 PM</div>
-        </div>
-        <div class="chat-msg bot" style="margin-top:8px">
-          <div>Please review the draft and let me know if there are any changes you'd like to make before sending it.</div>
-          <div class="chat-msg-time"><span class="material-icons-outlined">done_all</span> Feb 11, 2026, 4:21 PM</div>
-        </div>`;
+      DOM.chatMessages.innerHTML = `<div class="empty-state" style="padding:40px 16px">
+        <span class="material-icons-outlined" style="font-size:40px">forum</span>
+        <h3 style="font-size:1rem">Ask Marshal anything</h3>
+        <p style="font-size:0.85rem">Upload documents and ask questions about your construction projects.</p>
+      </div>`;
       return;
     }
     DOM.chatMessages.innerHTML = chat.messages.map(msg => {
@@ -619,21 +495,17 @@
         srcHtml = `<div class="source-citations"><div class="citations-label">📎 Sources</div><div class="citation-cards">${cards}</div></div>`;
       }
       return `<div class="chat-msg ${msg.role==='user'?'user':'bot'}" data-msg-id="${msg.id}">
-        <div class="message-text">${renderMd(msg.content)}</div>
-        ${srcHtml}
+        <div class="message-text">${renderMd(msg.content)}</div>${srcHtml}
         <div class="chat-msg-time">${fmtTime(msg.timestamp)}</div>
       </div>`;
     }).join('');
-
     DOM.chatMessages.querySelectorAll('.citation-card').forEach(c => {
-      c.addEventListener('click', () => { if(c.dataset.imageUrl) openImagePreview(c.dataset.imageUrl); });
+      c.addEventListener('click', ()=>{ if(c.dataset.imageUrl) openImagePreview(c.dataset.imageUrl); });
     });
     scrollChatBottom();
   }
 
-  function scrollChatBottom() {
-    requestAnimationFrame(() => { DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight; });
-  }
+  function scrollChatBottom() { requestAnimationFrame(()=>{ DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight; }); }
 
   async function sendChatMessage() {
     const text = DOM.chatInput.value.trim();
@@ -643,10 +515,9 @@
     DOM.chatInput.value = '';
     renderChatMessages();
     state.isStreaming = true;
-    // Show typing
+
     const typEl = document.createElement('div');
-    typEl.className = 'chat-msg bot';
-    typEl.id = 'typingIndicator';
+    typEl.className = 'chat-msg bot'; typEl.id = 'typingIndicator';
     typEl.innerHTML = '<div class="typing-indicator"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
     DOM.chatMessages.appendChild(typEl);
     scrollChatBottom();
@@ -657,28 +528,19 @@
       history.pop();
       const res = await apiReq('/api/chat', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ query:text, history, model:APP_CONFIG.MODEL, top_k:APP_CONFIG.TOP_K })
+        body:JSON.stringify({ query:text, history, model:APP_CONFIG.MODEL, top_k:APP_CONFIG.TOP_K })
       });
       const el = document.getElementById('typingIndicator'); if(el)el.remove();
       const ct = res.headers.get('content-type')||'';
-      if (ct.includes('text/event-stream')) {
-        await handleStream(res);
-      } else {
-        const data = await res.json();
-        addMessage('bot', data.response, data.sources||null);
-        renderChatMessages();
-      }
+      if (ct.includes('text/event-stream')) { await handleStream(res); }
+      else { const data = await res.json(); addMessage('bot', data.response, data.sources||null); renderChatMessages(); }
     } catch(error) {
       const el = document.getElementById('typingIndicator'); if(el)el.remove();
       if (error.message.includes('Backend URL not configured')) {
         addMessage('bot', '⚙️ **Backend not connected.** Open Settings and enter your ngrok URL.');
-      } else {
-        addMessage('bot', `❌ **Error:** ${error.message}`);
-      }
+      } else { addMessage('bot', `❌ **Error:** ${error.message}`); }
       renderChatMessages();
-    } finally {
-      state.isStreaming = false;
-    }
+    } finally { state.isStreaming = false; }
   }
 
   async function handleStream(response) {
@@ -692,8 +554,7 @@
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream:true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
+        const lines = buffer.split('\n'); buffer = lines.pop();
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
@@ -723,10 +584,7 @@
     DOM.uploadPanelOverlay.classList.add('open');
     fetchDocuments();
   }
-  function closeUploadPanel() {
-    DOM.uploadPanel.classList.remove('open');
-    DOM.uploadPanelOverlay.classList.remove('open');
-  }
+  function closeUploadPanel() { DOM.uploadPanel.classList.remove('open'); DOM.uploadPanelOverlay.classList.remove('open'); }
 
   async function uploadFiles(files) {
     const valid = Array.from(files).filter(f => {
@@ -738,21 +596,15 @@
     for (const file of valid) {
       const docId = genId();
       const doc = { id:docId, name:file.name, type:getExt(file.name), size:file.size, status:'uploading', pages:0 };
-      state.uploadedDocs.push(doc);
-      renderDocList();
+      state.uploadedDocs.push(doc); renderDocList();
       try {
         const fd = new FormData(); fd.append('file',file); fd.append('doc_id',docId);
         const res = await apiReq('/api/upload',{method:'POST',body:fd});
         const data = await res.json();
         doc.status='indexed'; doc.pages=data.pages||0;
-        renderDocList();
-        showToast(`Uploaded: ${file.name}`,'success');
+        renderDocList(); showToast(`Uploaded: ${file.name}`,'success');
       } catch(e) { doc.status='error'; renderDocList(); showToast(`Upload failed: ${file.name}`,'error'); }
     }
-  }
-
-  async function fetchDocuments() {
-    try { const r=await apiReq('/api/documents'); const d=await r.json(); state.uploadedDocs=d.documents||[]; renderDocList(); } catch(e) {}
   }
 
   function renderDocList() {
@@ -791,7 +643,7 @@
     closeSettings();
     showToast('Settings saved!','success');
     checkConnection();
-    fetchDocuments();
+    fetchAllData();
   }
 
   // ═══ Image Preview ═══
@@ -800,48 +652,25 @@
 
   // ═══ Event Listeners ═══
   function initEvents() {
-    // Sidebar nav
-    $$('.nav-item[data-page]').forEach(item => {
-      item.addEventListener('click', () => navigateTo(item.dataset.page));
-    });
-    $$('.nav-group-header').forEach(hdr => {
-      hdr.addEventListener('click', () => {
-        const key = hdr.dataset.group;
-        state.expandedGroups[key] = !state.expandedGroups[key];
-        updateNavGroups();
-      });
-    });
-
-    // Sidebar toggle (mobile)
+    $$('.nav-item[data-page]').forEach(item => item.addEventListener('click', () => navigateTo(item.dataset.page)));
+    $$('.nav-group-header').forEach(hdr => hdr.addEventListener('click', () => { state.expandedGroups[hdr.dataset.group] = !state.expandedGroups[hdr.dataset.group]; updateNavGroups(); }));
     DOM.btnSidebarToggle.addEventListener('click', () => DOM.sidebar.classList.toggle('open'));
-
-    // Chat panel toggle
     DOM.btnToggleChat.addEventListener('click', () => {
       DOM.chatPanel.classList.toggle('collapsed');
       if (window.innerWidth <= 1200) DOM.chatPanel.classList.toggle('visible');
     });
-
-    // Chat send
     DOM.btnChatSend.addEventListener('click', sendChatMessage);
     DOM.chatInput.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage();} });
-
-    // Settings
-    const settingsNavItem = $('.nav-item[data-page="marshal-chat"]');
-    // Open settings via gear icon click — we add a settings trigger
+    DOM.btnOpenSettings.addEventListener('click', openSettings);
+    DOM.btnHeaderSettings.addEventListener('click', openSettings);
     DOM.btnCloseSettings.addEventListener('click', closeSettings);
     DOM.btnCancelSettings.addEventListener('click', closeSettings);
     DOM.btnSaveSettings.addEventListener('click', saveSettings);
     DOM.settingsModal.addEventListener('click', e => { if(e.target===DOM.settingsModal) closeSettings(); });
-
-    // CRUD modal
     DOM.btnCloseCrud.addEventListener('click', closeCrudModal);
     DOM.btnCancelCrud.addEventListener('click', closeCrudModal);
-    DOM.btnSaveCrud.addEventListener('click', () => {
-      if (crudCallback && crudCallback()) { closeCrudModal(); renderPage(); showToast('Saved successfully','success'); }
-    });
+    DOM.btnSaveCrud.addEventListener('click', async () => { if(crudCallback && await crudCallback()){closeCrudModal();renderPage();showToast('Saved','success');} });
     DOM.crudModal.addEventListener('click', e => { if(e.target===DOM.crudModal) closeCrudModal(); });
-
-    // Upload panel
     DOM.btnCloseUploadPanel.addEventListener('click', closeUploadPanel);
     DOM.uploadPanelOverlay.addEventListener('click', closeUploadPanel);
     DOM.btnChatAttach.addEventListener('click', openUploadPanel);
@@ -849,22 +678,8 @@
     DOM.dropZone.addEventListener('dragleave', () => DOM.dropZone.classList.remove('drag-over'));
     DOM.dropZone.addEventListener('drop', e => { e.preventDefault(); DOM.dropZone.classList.remove('drag-over'); uploadFiles(e.dataTransfer.files); });
     DOM.fileInput.addEventListener('change', e => { if(e.target.files.length>0){uploadFiles(e.target.files);e.target.value='';} });
-
-    // Image preview
-    DOM.imagePreviewOverlay.addEventListener('click', e => {
-      if(e.target===DOM.imagePreviewOverlay||e.target.closest('.image-preview-close')) closeImagePreview();
-    });
-
-    // Keyboard
-    document.addEventListener('keydown', e => {
-      if(e.key==='Escape'){closeImagePreview();closeSettings();closeCrudModal();closeUploadPanel();}
-    });
-
-    // User profile → settings
-    $('#userProfile').addEventListener('click', openSettings);
-
-    // Back button
-    DOM.btnBack.addEventListener('click', () => navigateTo('project-details'));
+    DOM.imagePreviewOverlay.addEventListener('click', e => { if(e.target===DOM.imagePreviewOverlay||e.target.closest('.image-preview-close')) closeImagePreview(); });
+    document.addEventListener('keydown', e => { if(e.key==='Escape'){closeImagePreview();closeSettings();closeCrudModal();closeUploadPanel();} });
   }
 
   // ═══ Init ═══
@@ -874,9 +689,14 @@
     updateNavGroups();
     navigateTo('project-details');
     renderChatMessages();
-    if (getApiUrl()) { checkConnection(); fetchDocuments(); }
+    if (getApiUrl()) { checkConnection(); fetchAllData(); }
+    else {
+      // Show settings on first load if no backend configured
+      setTimeout(() => {
+        showToast('Configure your backend URL in Settings to get started.','info',6000);
+      }, 500);
+    }
     setInterval(checkConnection, 30000);
-    console.log('%c🏗️ BuildMarshal','font-size:20px;font-weight:bold;color:#22c55e');
   }
 
   document.readyState==='loading' ? document.addEventListener('DOMContentLoaded',init) : init();

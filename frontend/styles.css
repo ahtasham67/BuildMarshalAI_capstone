@@ -1933,3 +1933,59 @@ body {
 .doc-link:hover {
   text-decoration: underline;
 }
+
+/* ── Sidebar Bottom ── */
+.sidebar-bottom {
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 0;
+  margin-top: auto;
+}
+
+.sidebar-bottom .nav-item {
+  padding: 8px 20px;
+}
+
+.sidebar-bottom .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Connection Banner ── */
+.connection-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: var(--bg-badge-orange);
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  font-size: 0.88rem;
+  color: #92400e;
+}
+
+.connection-banner .material-icons-outlined {
+  font-size: 20px;
+  color: #d97706;
+}
+
+/* ── Header Page Title ── */
+.header-page-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* ── Button Small ── */
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.82rem;
+}
