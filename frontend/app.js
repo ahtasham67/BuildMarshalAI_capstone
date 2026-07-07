@@ -1315,7 +1315,10 @@
         const res = await fetch(`${apiUrl}/api/projects/${id}/generate-document`, {
           method: 'POST',
         });
-        if (!res.ok) throw new Error('Failed to generate document');
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Failed to generate document: ${errText || res.statusText}`);
+        }
         
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -1679,7 +1682,10 @@
           messages: chat.messages.map(m => ({ role: m.role, content: m.content })) 
         })
       });
-      if (!res.ok) throw new Error('Failed to export chat');
+      if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Failed to export chat: ${errText || res.statusText}`);
+      }
       
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
